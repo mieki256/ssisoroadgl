@@ -1,0 +1,40 @@
+OBJS = ssisoroadglfw.o render.o
+DATAS = motosuko.h housakatouge.h bandaiazumaskyline.h yasyajintouge.h car.h scooter.h
+
+ifeq ($(OS),Windows_NT)
+# Windows
+TARGET = ssisoroadglfw.exe
+GCC_VERSION=$(shell gcc -dumpversion)
+
+ifeq ($(GCC_VERSION),6.3.0)
+# MinGW gcc 6.3.0
+LIBS = -static -lstdc++ -lgcc -lopengl32 -lglu32 -lgdi32 -lglfw3dll -lwinmm -mwindows
+else
+# MinGW gcc 9.2.0, MSYS2
+LIBS = -static -lstdc++ -lgcc -lopengl32 -lglu32 -lgdi32 -lglfw3 -lwinmm -mwindows
+endif
+
+else
+# Linux (Ubuntu Linux 22.04 LTS, gcc 11.4.0)
+TARGET = ssisoroadglfw
+LIBS = -lGL -lGLU -lglfw -lm
+endif
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	g++ -o $@ $(OBJS) $(LIBS)
+
+ssisoroadglfw.o: ssisoroadglfw.cpp render.h
+	g++ -o $@ -c $<
+
+render.o: render.cpp render.h settings.h glbitmfont.h $(DATAS)
+	g++ -o $@ -c $<
+
+.PHONY: cleanall
+cleanall:
+	rm -f $(TARGET) *.o
+
+.PHONY: clean
+clean:
+	rm -f *.o
