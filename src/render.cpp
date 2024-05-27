@@ -1,4 +1,4 @@
-// Last updated: <2024/05/28 04:31:23 +0900>
+// Last updated: <2024/05/28 08:48:18 +0900>
 //
 // Update objs and draw objs by OpenGL
 
@@ -217,7 +217,7 @@ void draw_obj(void);
 double get_road_vec(float idx);
 double get_curve_angle(float idx);
 void get_road_pos(float idx, float p, double *x, double *y);
-void draw_text(const char *buf, float x, float y, int kind);
+void draw_text(const char *buf, float x, float y, int kind, float a);
 void draw_fps(void);
 void draw_course_name(float delta);
 void draw_fadeout(float a);
@@ -399,7 +399,7 @@ void init_work(void)
     gw.fadev = 1.0;
     gw.roads = course_data[gw.course_num];
     gw.roads_len = course_size[gw.course_num];
-    gw.course_name_timer = 5.0;
+    gw.course_name_timer = 7.5;
 }
 
 void update(float delta)
@@ -455,7 +455,7 @@ void update(float delta)
     }
     else
     {
-        gw.view_scale = 0.55 + 0.4 * sin(deg2rad(gw.ang * 0.3));
+        gw.view_scale = 0.5 + 0.4 * sin(deg2rad(gw.ang * 0.3));
     }
 
     gw.view_h = (float(SCRH) / 2.0) * gw.view_scale;
@@ -628,6 +628,14 @@ void draw_gl(float delta)
         glPopMatrix();
     }
 
+    glLoadIdentity();
+
+    // reset ortho
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-1.0, 1.0, -1.0, 1.0, -gw.zfar, gw.zfar);
+
+    glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
     glDisable(GL_LIGHTING);
@@ -874,32 +882,15 @@ void get_road_pos(float idx, float p, double *x, double *y)
     *y = pyl + (pyr - pyl) * p;
 }
 
-void draw_text(const char *buf, float x, float y, int kind)
-{
-    float z = gw.zfar - 1;
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-
-    float c = 1.0;
-    if (gw.stage_color_num == 2)
-        c = 0.0;
-
-    // text
-    glColor4f(c, c, c, 1.0);
-    glRasterPos3f(x, y, z);
-    glBitmapFontDrawString(buf, kind);
-}
-
 void draw_fps(void)
 {
     char buf[512];
     sprintf(buf, "FPS %d/%d", gw.count_fps, (int)gw.cfg_framerate);
 
     float x, y;
-    x = gw.view_w * -0.05;
-    y = gw.view_h * 0.9;
-    draw_text(buf, x, y, GL_FONT_PROFONT);
+    x = -0.05;
+    y = 0.9;
+    draw_text(buf, x, y, GL_FONT_PROFONT, 1.0);
 }
 
 void draw_course_name(float delta)
@@ -908,17 +899,47 @@ void draw_course_name(float delta)
         return;
 
     float x, y;
-    x = gw.view_w * -0.9;
-    y = gw.view_h * 0.9;
-    draw_text(course_name[gw.course_num], x, y, GL_FONT_PROFONT);
+    float a;
+    x = -0.95;
+    y = 0.9;
+    a = (gw.course_name_timer >= 1.0) ? 1.0 : gw.course_name_timer;
+    draw_text(course_name[gw.course_num], x, y, GL_FONT_PROFONT, a);
 
     gw.course_name_timer -= delta;
     if (gw.course_name_timer <= 0.0)
         gw.course_name_timer = 0.0;
 }
 
+void draw_text(const char *buf, float x, float y, int kind, float a)
+{
+    float z = gw.zfar - 1;
+    float c = (gw.stage_color_num == 2) ? 0.0 : 1.0;
+
+    glDisable(GL_DEPTH_TEST);
+
+    if (a >= 1.0)
+    {
+        a = 1.0;
+        glDisable(GL_BLEND);
+    }
+    else
+    {
+        if (a < 0.0)
+            a = 0.0;
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    // text
+    glColor4f(c, c, c, a);
+    glRasterPos3f(x, y, z);
+    glBitmapFontDrawString(buf, kind);
+}
+
 void draw_fadeout(float a)
 {
+    float z = gw.zfar - 2;
+
     if (a <= 0.0)
     {
         glDisable(GL_BLEND);
@@ -937,11 +958,9 @@ void draw_fadeout(float a)
         glDisable(GL_BLEND);
     }
 
-    float z, w, h;
-    // z = gw.zfar - 0.005;
-    z = gw.zfar - 2;
-    w = gw.view_w * 2.0;
-    h = gw.view_h * 2.0;
+    float w, h;
+    w = 2.0;
+    h = 2.0;
     glColor4f(0.0, 0.0, 0.0, a);
     glBegin(GL_QUADS);
     glVertex3f(-w, h, z);
