@@ -1,4 +1,4 @@
-// Last updated: <2024/05/02 04:04:25 +0900>
+// Last updated: <2024/05/28 04:31:23 +0900>
 //
 // Update objs and draw objs by OpenGL
 
@@ -217,7 +217,7 @@ void draw_obj(void);
 double get_road_vec(float idx);
 double get_curve_angle(float idx);
 void get_road_pos(float idx, float p, double *x, double *y);
-void draw_text(const char *buf, float x, float y, float sdw, int kind, float a);
+void draw_text(const char *buf, float x, float y, int kind);
 void draw_fps(void);
 void draw_course_name(float delta);
 void draw_fadeout(float a);
@@ -377,7 +377,8 @@ void init_work_first(int Width, int Height)
     gw.scrh = Height;
     gw.framerate = 60.0;
     gw.cfg_framerate = (1000.0 / (float)waitValue);
-    gw.zfar = 1000.0;
+    // gw.zfar = 1000.0;
+    gw.zfar = 800.0;
     gw.use_waittime = 0;
     gw.wait_time = 0.0;
     gw.fadev = 0.0;
@@ -454,8 +455,9 @@ void update(float delta)
     }
     else
     {
-        gw.view_scale = 0.5 + 0.4 * sin(deg2rad(gw.ang * 0.3));
+        gw.view_scale = 0.55 + 0.4 * sin(deg2rad(gw.ang * 0.3));
     }
+
     gw.view_h = (float(SCRH) / 2.0) * gw.view_scale;
     gw.view_w = gw.view_h * float(gw.scrw) / float(gw.scrh);
 
@@ -628,12 +630,18 @@ void draw_gl(float delta)
 
     glLoadIdentity();
 
+    glDisable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
+    glDisable(GL_COLOR_MATERIAL);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_TEXTURE_2D);
+
     draw_fadeout(gw.fadev);
+
+    draw_course_name(delta);
 
     if (fps_display != 0)
         draw_fps();
-
-    draw_course_name(delta);
 }
 
 void draw_roads(int i, int n, double xb, double yb)
@@ -718,7 +726,8 @@ void draw_roads(int i, int n, double xb, double yb)
             // draw white line polygon
             if (i0 % 2 == 0)
             {
-                z = 5.01;
+                // z = 5.01;
+                z = 5.1;
                 glColor4f(1.0, 1.0, 1.0, 1.0);
                 glVertex3d(lx0, z, ly0);
                 glVertex3d(lx1, z, ly1);
@@ -865,27 +874,19 @@ void get_road_pos(float idx, float p, double *x, double *y)
     *y = pyl + (pyr - pyl) * p;
 }
 
-void draw_text(const char *buf, float x, float y, float sdw, int kind, float a)
+void draw_text(const char *buf, float x, float y, int kind)
 {
-    float z;
-    if (a < 0.0)
-        a = 0.0;
-    if (a >= 1.0)
-        a = 1.0;
+    float z = gw.zfar - 1;
 
-    // shadow
-    if (a >= 1.0)
-    {
-        z = gw.zfar - 0.002;
-        glColor4f(0, 0, 0, a);
-        float d = sdw * gw.view_scale;
-        glRasterPos3f(x + d, y - d, z);
-        glBitmapFontDrawString(buf, kind);
-    }
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    float c = 1.0;
+    if (gw.stage_color_num == 2)
+        c = 0.0;
 
     // text
-    z = gw.zfar - 0.001;
-    glColor4f(1, 1, 1, a);
+    glColor4f(c, c, c, 1.0);
     glRasterPos3f(x, y, z);
     glBitmapFontDrawString(buf, kind);
 }
@@ -895,11 +896,10 @@ void draw_fps(void)
     char buf[512];
     sprintf(buf, "FPS %d/%d", gw.count_fps, (int)gw.cfg_framerate);
 
-    float x, y, sdw;
+    float x, y;
     x = gw.view_w * -0.05;
     y = gw.view_h * 0.9;
-    sdw = 1.0;
-    draw_text(buf, x, y, sdw, GL_FONT_PROFONT, 1.0);
+    draw_text(buf, x, y, GL_FONT_PROFONT);
 }
 
 void draw_course_name(float delta)
@@ -907,12 +907,10 @@ void draw_course_name(float delta)
     if (gw.course_name_timer <= 0.0)
         return;
 
-    float x, y, sdw, a;
+    float x, y;
     x = gw.view_w * -0.9;
-    y = gw.view_h * -0.9;
-    sdw = 1.0;
-    a = (gw.course_name_timer >= 1.0) ? 1.0 : gw.course_name_timer;
-    draw_text(course_name[gw.course_num], x, y, sdw, GL_FONT_PROFONT, a);
+    y = gw.view_h * 0.9;
+    draw_text(course_name[gw.course_num], x, y, GL_FONT_PROFONT);
 
     gw.course_name_timer -= delta;
     if (gw.course_name_timer <= 0.0)
@@ -922,9 +920,11 @@ void draw_course_name(float delta)
 void draw_fadeout(float a)
 {
     if (a <= 0.0)
+    {
+        glDisable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
         return;
-
-    glDisable(GL_TEXTURE_2D);
+    }
 
     if (a < 1.0)
     {
@@ -938,7 +938,8 @@ void draw_fadeout(float a)
     }
 
     float z, w, h;
-    z = gw.zfar - 0.005;
+    // z = gw.zfar - 0.005;
+    z = gw.zfar - 2;
     w = gw.view_w * 2.0;
     h = gw.view_h * 2.0;
     glColor4f(0.0, 0.0, 0.0, a);
